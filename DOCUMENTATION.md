@@ -29,11 +29,12 @@ File ini adalah jantung dari aplikasi Streamlit Anda. Semua antarmuka pengguna (
 *   **Fungsi Utama:**
     *   Mengatur konfigurasi halaman Streamlit (Judul, Icon, dan Layout lebar).
     *   Menampilkan antarmuka pengunggahan file dataset CSV di bagian kiri halaman.
-    *   Menyediakan dropdown pilihan untuk memilih 1 dari 8 variasi model (SVM, KNN, Decision Tree, Neural Network; baik tipe Baseline maupun HPO).
-    *   Mencari file model di folder `models/` secara otomatis dengan kecocokan nama yang fleksibel (*case-insensitive*).
-    *   Menyediakan tombol upload manual apabila file model tidak ditemukan di folder `models/`.
+    *   Menyediakan dropdown pilihan untuk memilih salah satu dari 4 model utama (SVM, KNN, Decision Tree, Neural Network).
+    *   Mencari file model di folder `models/` atau `model/` secara otomatis dengan kecocokan nama yang fleksibel (*case-insensitive*).
+    *   Menyediakan tombol upload manual apabila file model tidak ditemukan di folder model.
     *   Melakukan kalkulasi prediksi pada data baru menggunakan model `.joblib` / `.pkl` yang dimuat.
-    *   Menyediakan tombol unduh (*download*) untuk mengekspor hasil prediksi ke file CSV baru.
+    *   Menyediakan tombol unduh (*download*) untuk mengekspor hasil prediksi ke file Excel (.xlsx) baru.
+    *   Menampilkan panel samping (sidebar) berisi ringkasan informasi dataset yang diunggah dan algoritma prediksi yang sedang digunakan secara dinamis.
 
 ### 2. File Dependensi: `requirements.txt`
 Daftar pustaka Python pihak ketiga (*third-party libraries*) yang wajib diinstal agar aplikasi dapat berjalan tanpa error.
@@ -44,8 +45,10 @@ Daftar pustaka Python pihak ketiga (*third-party libraries*) yang wajib diinstal
     *   `scikit-learn`: Digunakan untuk mendukung objek model Machine Learning (SVM, KNN, dll.) yang dimuat oleh `joblib`.
     *   `joblib`: Digunakan untuk memuat (*load*) dan membaca file serialisasi model.
     *   `matplotlib` & `seaborn`: Digunakan untuk visualisasi data jika diperlukan di masa depan.
+    *   `openpyxl`: Digunakan oleh Pandas untuk menulis data ke file Excel (.xlsx).
 
-### 3. Folder Penyimpanan Model: `models/`
+
+### 3. Folder Penyimpanan Model: `models/` atau `model/`
 Folder fisik yang digunakan sebagai repositori lokal untuk meletakkan file model hasil pelatihan di Google Colab.
 *   **File di Dalamnya:**
     *   `README.md`: Berisi instruksi singkat mengenai jenis-jenis file model yang dapat dimasukkan beserta instruksi pemanggilannya di Python.
@@ -59,21 +62,22 @@ Folder fisik yang digunakan sebagai repositori lokal untuk meletakkan file model
 Untuk meminimalisir kesalahan penamaan file model, dibuat fungsi pemindai file:
 ```python
 def find_model_file(patterns):
-    # Memeriksa eksistensi folder models
-    if not os.path.exists("models"):
-        return None
-    # Mengubah target pola pencarian ke huruf kecil dan standarisasi tanda hubung '-'
-    normalized_patterns = [p.lower().replace("_", "-") for p in patterns]
-    # Memindai seluruh isi folder models/
-    for filename in os.listdir("models"):
-        name_without_ext, ext = os.path.splitext(filename)
-        if ext.lower() in ['.pkl', '.joblib']:
-            normalized_name = name_without_ext.lower().replace("_", "-")
-            if normalized_name in normalized_patterns:
-                return filename
-    return None
+    # Memeriksa eksistensi folder models atau model
+    for folder in ["models", "model"]:
+        if not os.path.exists(folder):
+            continue
+        # Mengubah target pola pencarian ke huruf kecil dan standarisasi tanda hubung '-'
+        normalized_patterns = [p.lower().replace("_", "-") for p in patterns]
+        # Memindai seluruh isi folder tersebut
+        for filename in os.listdir(folder):
+            name_without_ext, ext = os.path.splitext(filename)
+            if ext.lower() in ['.pkl', '.joblib']:
+                normalized_name = name_without_ext.lower().replace("_", "-")
+                if normalized_name in normalized_patterns:
+                    return folder, filename
+    return None, None
 ```
-*   **Kenapa ini penting?** Jika Anda mengunggah file dengan variasi nama seperti `modelJb_SVM-HPO.joblib`, `svm_hpo.pkl`, atau `modeljb_svm_hpo.joblib`, fungsi ini tetap dapat mencocokkannya secara otomatis saat opsi **"SVM - HPO"** dipilih.
+*   **Kenapa ini penting?** Jika Anda mengunggah file dengan variasi nama seperti `modelJb_SVM-HPO.joblib`, `svm_hpo.pkl`, atau `modeljb_svm_hpo.joblib`, fungsi ini tetap dapat mencocokkannya secara otomatis saat opsi **"SVM"** dipilih.
 
 ### B. Penyaringan Fitur Otomatis (`target_keywords`)
 Saat dataset CSV dimuat, aplikasi secara otomatis mendeteksi kolom yang akan dijadikan input model. Pustaka ini secara cerdas mengecualikan kolom target/label dari pilihan default fitur untuk mencegah error prediksi:
